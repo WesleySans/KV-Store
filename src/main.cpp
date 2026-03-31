@@ -3,6 +3,10 @@
 #include <sstream>
 #include <vector>
 #include <algorithm>
+#include <unordered_map>
+#include <cctype>
+
+// Commando Exec: g++ -std=c++17 -Wall -Wextra -O2 main.cpp -o kvstore
 
 // ### WARNING
 // printf/scanf no usable 
@@ -48,12 +52,34 @@ Examples:
 )" << std::endl;
 }
 
+static bool parsePutValue(const std::string& line,
+                    const std::string& cmdToken,
+                    const std::string& keyToken,
+                    std::string& outValue){
+
+    auto posCmd = line.find(cmdToken);
+    if(posCmd == std::string::npos) return false;
+
+    auto posKey = line.find(keyToken,posCmd + cmdToken.size());
+    if(posKey == std::string::npos) return false;
+
+    auto posValueStart = posKey + keyToken.size();
+    std::string value = line.substr(posValueStart);
+    value = trim(value);
+    if(!value.empty() && value[0] == ' ') value.erase(0,1);
+    outValue = trim(value); 
+    return true;
+
+}
+
 int main (){
     // optimization 
     std::ios::sync_with_stdio(false); 
     std::cin.tie(nullptr);
 
-    std::cout << "KVStore V0 (CLI only) Type 'help' for commands. \n";
+    std::unordered_map<std::string , std::string> kv;
+
+    std::cout << "KVStore V1 (CLI only) Type 'help' for commands. \n";
 
     std::string line; // commands line
 
@@ -77,27 +103,28 @@ int main (){
             continue;
         }
 
+        if(cmd =="status"){
+            std::cout << "OK keys=" << kv.size() << "\n";
+            continue;
+        }
 
-        // V0: syntax validation and simulate the response
+
         if(cmd == "put"){
             // put <key> <value>
             if(parts.size() < 3 ){
                 std::cout << "ERR usage: put <key> <value>\n";
                 continue;
             }
-            std::string key = parts[1];
+            const std::string key = parts[1];
+            std::string value;
 
-            // get the position of eatch part
-            auto posCmd = line.find(parts[0]);
-            auto posKey = line.find(parts[1], posCmd + parts[0].size());
-            auto posValueStart = posKey + parts[1].size();
+            if(!parsePutValue(line,parts[0], parts[1],value)){
+                std::cout << "ERR usage: put <key> <value>\n";
+                continue;
+            }
 
-            std::string value = trim(line.substr(posValueStart));
-
-            if(!value.empty() && value[0] == ' ') value.erase(0,1);
-            value = trim(value);
-
-            std::cout << "OK (V0 simulated) put key= '" << key << "' value='" << value << "'\n";
+            kv[key] = value;
+            std:: cout << "OK\n";
             continue;
         }
 
@@ -107,10 +134,13 @@ int main (){
                 std::cout << "ERR usage: get <key>\n";
                 continue;
             }
-            std::string key = parts[1];
-
-            // V0 doesn't has data yet - always NOT_FOUND
-            std::cout << "NOT_FOUND (V0 simulated) key =='" << key << "'\n";
+            const std::string key = parts[1];
+            auto it = kv.find(key);
+            if(it == kv.end()){
+                std::cout << "NOT_FOUND\n";
+            }else{
+                std::cout << "OK " << it->second << "\n";
+            }
             continue;
         }
 
@@ -119,10 +149,13 @@ int main (){
                 std::cout << "ERR usage: del <key>\n";
                 continue;
             }
-            std::string key = parts[1];
-
-            // V0 no delete yet -- just confirm
-            std::cout << "OK (V0 simulated) del key='" << key << "'\n)";
+            const std::string key = parts[1];
+            auto removed = kv.erase(key);
+            if(removed == 0){
+                std::cout << "NOT_FOUND\n";
+            } else{
+                std::cout << "OK\n";
+            }
             continue;
         }
 
@@ -130,4 +163,4 @@ int main (){
     }
     return 0;
 
-}
+}   
